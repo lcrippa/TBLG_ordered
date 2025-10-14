@@ -116,7 +116,8 @@ H0 = SBhamiltonian()
 
 H = lambda kx, ky: H0(kx, ky)
 set_converter(H)
-SK = SumkDFT(hdf_file=filename+'.h5',use_dft_blocks=True)
+
+SK = SumkDFT(hdf_file=filename+'.h5',use_dft_blocks=True,beta=beta)
 
 ## Check if previous runs exist
 previous_runs = 0
@@ -135,6 +136,12 @@ if mpi.is_master_node():
                 f.create_group('dmft_output')
 previous_runs = mpi.bcast(previous_runs)
 previous_present = mpi.bcast(previous_present)
+
+# Print
+if mpi.is_master_node():
+    print("Starting from previous run: ",previous_present)
+    print("Starting from iteration: ",previous_runs)
+
 
 # TODO Save run parameters
 if mpi.is_master_node():
@@ -186,7 +193,7 @@ for iteration_number in range(1,loops+1):
                 hopping2[ik,0,:,:] = H0(*BZ_sampling[ik]) + Hmf['down']+ H_pol['down']
             f['dft_input']['hopping'] = np.concatenate((hopping1, hopping2), axis = 1)
             
-    SK = SumkDFT(hdf_file=filename+'.h5',use_dft_blocks=True)
+    SK = SumkDFT(hdf_file=filename+'.h5',use_dft_blocks=True, beta=beta)
     SK.calculate_diagonalization_matrix(write_to_blockstructure=True)
     
     n_orb = SK.corr_shells[0]['dim']
@@ -194,7 +201,8 @@ for iteration_number in range(1,loops+1):
     orb_names = [i for i in range(n_orb)]
     gf_struct = SK.gf_struct_solver_list[0]
     Umat, Upmat = U_matrix_kanamori(n_orb=n_orb, U_int=U, J_hund=0)
-    h_int = h_int_density(spin_names, orb_names, map_operator_structure=SK.sumk_to_solver[0], U=Umat, Uprime=Upmat)
+    #h_int = h_int_density(spin_names, orb_names, map_operator_structure=SK.sumk_to_solver[0], U=Umat, Uprime=Upmat)
+    h_int = h_int_density(spin_names, n_orb, map_operator_structure=SK.sumk_to_solver[0], U=Umat, Uprime=Upmat)
     S = Solver(beta=beta, gf_struct=gf_struct)
     
 
@@ -228,8 +236,8 @@ for iteration_number in range(1,loops+1):
         print(("The degenerate shells are ", SK.deg_shells))
     if iteration_number>1 or previous_present:    
         SK.symm_deg_gf(S.Sigma_iw,ish=0)
-        
-    SK.set_Sigma([ S.Sigma_iw ])                            # put Sigma into the SumK class
+        SK.set_Sigma([ S.Sigma_iw ])                            # put Sigma into the SumK class
+    
     chemical_potential=0
     if mpi.is_master_node():
         with HDFArchive(filename+'.h5', 'r') as f:
