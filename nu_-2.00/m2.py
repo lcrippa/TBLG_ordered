@@ -35,6 +35,10 @@ if args.mix:
 if args.symm:
     broken_symm=args.symm
     filename = 'Data/'+broken_symm+'/'+filename[5:]
+
+directory = os.path.dirname(filename)
+os.makedirs(directory, exist_ok=True)
+
 p["n_cycles"] = (10**log_n)//160
 constrain=False
 sample_len = 9
